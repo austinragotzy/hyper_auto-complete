@@ -1,0 +1,1 @@
+command line agumentation ment to provide true auto completion for Hyper.Js using Node.Js and python... maybe more stuff we shall see what bumps we hit down the road. at the moment the idea is to use deep learing to do the auto completion using most like tensorflow and or some package on top of that. lets have some fun! (;
