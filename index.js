@@ -42,7 +42,10 @@ exports.decorateTerms = (Term, {React, notify}) => {
         constructor(props, context) {
             super(props, context);
             this.term = null;
+            this.uid = null;
+            this.data = null;
             this._onDecorated = this._onDecorated.bind(this);
+            this._onData = this._onData.bind(this);
         }
   
         _onDecorated(term) {
@@ -51,7 +54,16 @@ exports.decorateTerms = (Term, {React, notify}) => {
             this.term = term;
         }
 
+        _onData(uid, data) {
+            // Don't forget to propagate it to HOC chain
+            if (this.props.onData) this.props.onData(uid, data);
+            this.uid = uid;
+            this.data = data
+            console.log(this.data);
+        }
+
         _saveInputForTrain(term){
+            console.log(term);
             const id = this.props.activeSession
 
             const termLines = term.terms[id].term.buffer.lines;
@@ -99,7 +111,8 @@ exports.decorateTerms = (Term, {React, notify}) => {
             return React.createElement(
                 Term,
                 Object.assign({}, this.props, {
-                onDecorated: this._onDecorated
+                onDecorated: this._onDecorated,
+                onData: this._onData,
                 })
             );
         }
