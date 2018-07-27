@@ -1,0 +1,20 @@
+{
+  "name": "hyper-auto",
+  "version": "0.0.1",
+  "description": "command line augmentation meant to provide true auto completion for Hyper.Js using Node.Js and python",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "hyper.js",
+    "plugin",
+    "auto-complete",
+    "deep-learning"
+  ],
+  "author": "Ragotzy.devin <devin.ragotzy@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "fs-extra": "^7.0.0"
+  }
+}
