@@ -1,16 +1,19 @@
 const fs = require('fs-extra');
+let _currentCommand = null
 
 
 exports.middleware = (store) => (next) => (action) => {
     if ('SESSION_ADD_DATA' === action.type) {
       const { data } = action;
-      if (/auto-complete: command not found/.test(data)) {
         store.dispatch({
-          type: 'AUTO_COMPLETE',
+          type: "AUTO_COMPLETE",
+          data: data,
+          effect(){
+            _currentCommand = data
+            //console.log(_currentCommand);
+          }
         });
-      } else {
-        next(action);
-      }
+        next(action)
     } else {
       next(action);
     }
@@ -42,12 +45,13 @@ exports.decorateTerms = (Term, {React, notify}) => {
         constructor(props, context) {
             super(props, context);
             this.term = null;
-            this.uid = null;
-            this.data = null;
+            this.commandArr = [];
+            this.comStr = "";
+            this.line_x = 0
             this._onDecorated = this._onDecorated.bind(this);
             this._onData = this._onData.bind(this);
         }
-  
+
         _onDecorated(term) {
             // Don't forget to propagate it to HOC chain
             if (this.props.onDecorated) this.props.onDecorated(term);
@@ -57,54 +61,44 @@ exports.decorateTerms = (Term, {React, notify}) => {
         _onData(uid, data) {
             // Don't forget to propagate it to HOC chain
             if (this.props.onData) this.props.onData(uid, data);
-            this.uid = uid;
-            this.data = data
-            console.log(this.data);
+            console.log(_currentCommand);
+            this._checkForArrow(data);
+            this._makeString();
         }
 
-        _saveInputForTrain(term){
-            console.log(term);
-            const id = this.props.activeSession
+        _checkForArrow(data){
 
-            const termLines = term.terms[id].term.buffer.lines;
-
-            let terminalText = [];
-            let line_num;
-
-            for (line_num = 0;
-                line_num < termLines.length;
-                line_num++) {
-                    let char_array;
-                    let line = '';
-                    let non_whitespace_found = false;
-                    for (char_array = termLines._array[line_num].length - 1;        char_array >= 0;
-                        char_array--) {
-                        // Build lines character by character, removing trailing whitespace
-                        let char = termLines._array[line_num][char_array][1];
-
-                        if ((non_whitespace_found && char == ' ') || (non_whitespace_found && char != ' ')) {
-                            line = char + line; // first index is actual char
-                        } else if (!non_whitespace_found && char == ' ') {
-                            continue;
-                        } else if (!non_whitespace_found && char != ' ') {
-                            non_whitespace_found = true;
-                            line = char + line; // first index is actual char
-                        }
-                    }
-        
-                terminalText.push(line);
-                }
-
-            console.log(terminalText);
-        }
-
-        componentWillReceiveProps (next) {
-            if(next.autoComp) this._saveInputForTrain(this.term);
-            if (next.autoComp && !this.props.autoComp) {
-                notify('autoComplete is recording');
-            } else if (!next.autoComp && this.props.autoComp) {
-                notify('autoComplete is NOT recording');
+          if(data === '\x1b[A'){
+            // up arrow
+            console.log('poopsup');
+          }else if(data === '\x1b[B'){
+            // down arrow
+            console.log('poopsdown');
+          }else if(data === '\x1b[C'){
+            // right arrow
+            console.log('poopsright');
+            if(this.comStr.length > this.line_x){ //check logic
+              this.line_x++;
             }
+          }else if(data === '\x1b[D'){
+            // left arrow
+            console.log('poopsleft');
+            if(this.line_x < 0){
+              this.line_x--;
+            }
+          }
+        }
+
+        _makeString() {
+          //this method takes each character from the term input and creates a string out of it and once the command is done it pushes it into an array
+          if(this.data === '\b'){  //if there is a back space delete it
+            this.comStr = this.comStr.slice(this.line_x, this.line_x-1);
+          } else if(this.data === '\n'){ // if enter is pressed push the string to an array and clear the buffer string
+            this.commandArr.push(this.comStr);
+            this.comStr = "";
+          } else { // otherwise keep adding to the buffer string
+            this.comStr += this.data;
+          }
         }
 
         render() {
