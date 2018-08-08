@@ -49,6 +49,7 @@ exports.decorateTerms = (Term, {React, notify}) => {
             this.commandArr = [];
             this.comStr = "";
             this.line_x = 0
+            this.trigger = false;
             this._onDecorated = this._onDecorated.bind(this);
             this._onData = this._onData.bind(this);
         }
@@ -62,10 +63,10 @@ exports.decorateTerms = (Term, {React, notify}) => {
         _onData(uid, data) {
             // Don't forget to propagate it to HOC chain
             if (this.props.onData) this.props.onData(uid, data);
-            console.log(data);
-            console.log(_currentCommand);
+            //console.log(data);
+            //console.log(_currentCommand);
             this._checkForArrow(data);
-            this._makeString();
+            this._makeString(data);
         }
 
         // ctr shift v = '\x1b' + '[2~'
@@ -92,15 +93,18 @@ exports.decorateTerms = (Term, {React, notify}) => {
           }
         }
 
-        _makeString() {
+        _makeString(data) {
           //this method takes each character from the term input and creates a string out of it and once the command is done it pushes it into an array
-          if(this.data === '\b'){  //if there is a back space delete it
+          if(data === '\x7f'){  //if there is a back space delete it
             this.comStr = this.comStr.slice(this.line_x, this.line_x-1);
-          } else if(this.data === '\n'){ // if enter is pressed push the string to an array and clear the buffer string
+          } else if(data === '\x0d'){ // if enter is pressed push the string to an array and clear the buffer string
             this.commandArr.push(this.comStr);
             this.comStr = "";
+            this.line_x = 0;
+            console.log(this.commandArr);
           } else { // otherwise keep adding to the buffer string
-            this.comStr += this.data;
+            this.comStr += data;
+            this.line_x++;
           }
         }
 
