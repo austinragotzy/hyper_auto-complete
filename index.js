@@ -1,6 +1,7 @@
 const fs = require('fs-extra');
-let _currentCommand = null
 
+
+let _currentCommand = null
 
 exports.middleware = (store) => (next) => (action) => {
     if ('SESSION_ADD_DATA' === action.type) {
@@ -61,11 +62,13 @@ exports.decorateTerms = (Term, {React, notify}) => {
         _onData(uid, data) {
             // Don't forget to propagate it to HOC chain
             if (this.props.onData) this.props.onData(uid, data);
+            console.log(data);
             console.log(_currentCommand);
             this._checkForArrow(data);
             this._makeString();
         }
 
+        // ctr shift v = '\x1b' + '[2~'
         _checkForArrow(data){
 
           if(data === '\x1b[A'){
