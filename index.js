@@ -39,18 +39,17 @@ exports.getTermProps = (uid, parentProps, props) => Object.assign(props, {
   autoComp: parentProps.autoComp
 });
 
-exports.decorateTerms = (Term, {React, notify}) => {
-    return class extends React.Component {
-        constructor(props, context) {
-            super(props, context);
-            this.term = null;
-            this.commandArr = [];
-            this.comStr = "";
-            this.line_x = 0
-            this.trigger = false;
-            this._onDecorated = this._onDecorated.bind(this);
-            this._onData = this._onData.bind(this);
-        }
+exports.decorateTerms = (Term, { React, notify }) => class extends React.Component {
+  constructor(props, context) {
+    super(props, context);
+    this.term = null;
+    this.commandArr = [];
+    this.comStr = '';
+    this.line_x = 0;
+    this.trigger = false;
+    this._onDecorated = this._onDecorated.bind(this);
+    this._onData = this._onData.bind(this);
+  }
 
   _onDecorated(term) {
     // Don't forget to propagate it to HOC chain
@@ -58,73 +57,50 @@ exports.decorateTerms = (Term, {React, notify}) => {
     this.term = term;
   }
 
-        _onData(uid, data) {
-            // Don't forget to propagate it to HOC chain
-            if (this.props.onData) this.props.onData(uid, data);
-            //console.log(data);
-            //console.log(_currentCommand);
-            this._checkForArrow(data);
-            this._makeString(data);
-        }
+  _onData(uid, data) {
+    // Don't forget to propagate it to HOC chain
+    if (this.props.onData) this.props.onData(uid, data);
+    // console.log(data);
+    // console.log(_currentCommand);
+    this._checkForArrow(data);
+    this._makeString(data);
+  }
 
-        // ctr shift v = '\x1b' + '[2~'
-        _checkForArrow(data){
+  // ctr shift v = '\x1b' + '[2~'
+  _checkForArrow(data) {
+    if (data === '\x1b[A') {
+      // up arrow
+      console.log('poopsup');
+    } else if (data === '\x1b[B') {
+      // down arrow
+      console.log('poopsdown');
+    } else if (data === '\x1b[C') {
+      // right arrow
+      console.log('poopsright');
+      if (this.comStr.length > this.line_x) { // check logic
+        this.line_x++;
+      }
+    } else if (data === '\x1b[D') {
+      // left arrow
+      console.log('poopsleft');
+      if (this.line_x < 0) {
+        this.line_x--;
+      }
+    }
+  }
 
-          if(data === '\x1b[A'){
-            // up arrow
-            console.log('poopsup');
-          }else if(data === '\x1b[B'){
-            // down arrow
-            console.log('poopsdown');
-          }else if(data === '\x1b[C'){
-            // right arrow
-            console.log('poopsright');
-            if(this.comStr.length > this.line_x){ //check logic
-              this.line_x++;
-            }
-          }else if(data === '\x1b[D'){
-            // left arrow
-            console.log('poopsleft');
-            if(this.line_x < 0){
-              this.line_x--;
-            }
-          }
-        }
-
-        _makeString(data) {
-          //this method takes each character from the term input and creates a string out of it and once the command is done it pushes it into an array
-          if(data === '\x7f'){  //if there is a back space delete it
-            this.comStr = this.comStr.slice(this.line_x, this.line_x-1);
-          } else if(data === '\x0d'){ // if enter is pressed push the string to an array and clear the buffer string
-            this.commandArr.push(this.comStr);
-            this.comStr = "";
-            this.line_x = 0;
-            console.log(this.commandArr);
-          } else { // otherwise keep adding to the buffer string
-            this.comStr += data;
-            this.line_x++;
-          }
-        }
-
-        render() {
-            return React.createElement(
-                Term,
-                Object.assign({}, this.props, {
-                onDecorated: this._onDecorated,
-                onData: this._onData,
-                })
-            );
-        }
-
-  _makeString() {
+  _makeString(data) {
     // this method takes each character from the term input and creates a string out of it and once the command is done it pushes it into an array
-    if (this.data === '\b') { // if there is a back space delete it
+    if (data === '\x7f') { // if there is a back space delete it
       this.comStr = this.comStr.slice(this.line_x, this.line_x - 1);
-    } else if (this.data === '\n') { // if enter is pressed push the string to an array and clear the buffer string
+    } else if (data === '\x0d') { // if enter is pressed push the string to an array and clear the buffer string
       this.commandArr.push(this.comStr);
       this.comStr = '';
+      this.line_x = 0;
+      console.log(this.commandArr);
     } else { // otherwise keep adding to the buffer string
-      this.comStr += this.data;
+      this.comStr += data;
+      this.line_x++;
     }
   }
 
