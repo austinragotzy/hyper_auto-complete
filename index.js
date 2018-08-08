@@ -44,7 +44,7 @@ exports.decorateTerms = (Term, { React, notify }) => class extends React.Compone
     super(props, context);
     this.term = null;
     this.commandArr = [];
-    this.comStr = '';
+    this.comStr = [];
     this.line_x = 0;
     this.trigger = false;
     this._onDecorated = this._onDecorated.bind(this);
@@ -62,8 +62,10 @@ exports.decorateTerms = (Term, { React, notify }) => class extends React.Compone
     if (this.props.onData) this.props.onData(uid, data);
     // console.log(data);
     // console.log(_currentCommand);
-    this._checkForArrow(data);
-    this._makeString(data);
+    if(!this._checkForArrow(data)){
+      this._makeString(data);
+    }
+
   }
 
   // ctr shift v = '\x1b' + '[2~'
@@ -71,36 +73,59 @@ exports.decorateTerms = (Term, { React, notify }) => class extends React.Compone
     if (data === '\x1b[A') {
       // up arrow
       console.log('poopsup');
+      return true;
     } else if (data === '\x1b[B') {
       // down arrow
       console.log('poopsdown');
+      return true;
     } else if (data === '\x1b[C') {
       // right arrow
       console.log('poopsright');
       if (this.comStr.length > this.line_x) { // check logic
         this.line_x++;
       }
+      return true;
     } else if (data === '\x1b[D') {
       // left arrow
       console.log('poopsleft');
-      if (this.line_x < 0) {
+      if (this.line_x > 0) {
         this.line_x--;
       }
+      return true;
     }
+    return false;
   }
 
   _makeString(data) {
     // this method takes each character from the term input and creates a string out of it and once the command is done it pushes it into an array
     if (data === '\x7f') { // if there is a back space delete it
-      this.comStr = this.comStr.slice(this.line_x, this.line_x - 1);
+      if(this.line_x == this.comStr.length){ //cursor is at the end of array
+        this.comStr.pop()
+      }else if(this.line_x <= 0){ //cursor is befor the first element in array
+        return
+      }else{
+        this.comStr = this.comStr.slice(0, this.line_x - 1).concat(this.comStr.slice(this.line_x))
+      }
+      this.line_x--;
+      console.log(this.comStr);
+      console.log(this.line_x);
     } else if (data === '\x0d') { // if enter is pressed push the string to an array and clear the buffer string
-      this.commandArr.push(this.comStr);
-      this.comStr = '';
+      this.commandArr.push(this.comStr.join(''));
+      this.comStr = [];
       this.line_x = 0;
       console.log(this.commandArr);
     } else { // otherwise keep adding to the buffer string
-      this.comStr += data;
+      if(this.line_x == this.comStr.length){
+        this.comStr.push(data);
+      }else if(this.line_x <= 0){
+        this.comStr = [data].concat(this.comStr);
+      }else{
+        this.comStr = this.comStr.slice(0,
+          this.line_x).concat([data]).concat(this.comStr.slice(this.line_x));
+      }
+
       this.line_x++;
+      console.log(this.line_x);
     }
   }
 
