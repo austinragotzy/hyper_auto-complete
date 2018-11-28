@@ -4,6 +4,7 @@
   "description": "command line augmentation meant to provide true auto completion for Hyper.Js using Node.Js and python",
   "main": "index.js",
   "scripts": {
+    "start": "node takeT.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

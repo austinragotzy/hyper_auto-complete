@@ -1,17 +1,40 @@
 const fs = require('fs-extra');
+const AutoComp = require('./autoComp');
+const { fetchCmds } = require('./utils');
 
-
-let _currentCommand = null;
+// grab cmd from arrows, tab and paste then use on next input
+let _pastCommand;
+// array from .bash_history
+let _commandHistory;
+// paste is a UI_COMMAND_EXEC event
+let _didPaste = false;
 
 exports.middleware = store => next => (action) => {
-  if (action.type === 'SESSION_ADD_DATA') {
+  // add if UI_COMMAND_EXEC and then add data has paste
+  // command exec is editor:paste
+  if (action.type === 'INIT') {
+    store.dispatch({
+      type: 'AUTO_COMPLETE',
+      async effect() {
+        _commandHistory = await fetchCmds();
+      }
+    });
+    next(action);
+  } else if (action.type === 'SESSION_ADD_DATA') {
     const { data } = action;
     store.dispatch({
       type: 'AUTO_COMPLETE',
       data,
       effect() {
-        _currentCommand = data;
-        // console.log(_currentCommand);
+        _pastCommand = data;
+      }
+    });
+    next(action);
+  } else if (action.type === 'UI_COMMAND_EXEC' && action.command === 'editor:paste') {
+    store.dispatch({
+      type: 'AUTO_COMPLETE',
+      effect() {
+        _didPaste = true;
       }
     });
     next(action);
@@ -20,10 +43,11 @@ exports.middleware = store => next => (action) => {
   }
 };
 
+// // get rid of this?
 exports.reduceUI = (state, action) => {
   switch (action.type) {
     case 'AUTO_COMPLETE':
-      return state.set('autoComp', !state.autoComp);
+      return state.set('autoComp', state.autoComp);
     default:
       break;
   }
@@ -43,10 +67,7 @@ exports.decorateTerms = (Term, { React, notify }) => class extends React.Compone
   constructor(props, context) {
     super(props, context);
     this.term = null;
-    this.commandArr = [];
-    this.comStr = [];
-    this.line_x = 0;
-    this.trigger = false;
+    this.ac = new AutoComp();
     this._onDecorated = this._onDecorated.bind(this);
     this._onData = this._onData.bind(this);
   }
@@ -60,72 +81,84 @@ exports.decorateTerms = (Term, { React, notify }) => class extends React.Compone
   _onData(uid, data) {
     // Don't forget to propagate it to HOC chain
     if (this.props.onData) this.props.onData(uid, data);
-    // console.log(data);
-    // console.log(_currentCommand);
-    if(!this._checkForArrow(data)){
-      this._makeString(data);
-    }
 
-  }
-
-  // ctr shift v = '\x1b' + '[2~'
-  _checkForArrow(data) {
-    if (data === '\x1b[A') {
-      // up arrow
-      console.log('poopsup');
-      return true;
-    } else if (data === '\x1b[B') {
-      // down arrow
-      console.log('poopsdown');
-      return true;
-    } else if (data === '\x1b[C') {
-      // right arrow
-      console.log('poopsright');
-      if (this.comStr.length > this.line_x) { // check logic
-        this.line_x++;
+    // no special key presses
+    if ((!this.ac._checkForArrow(data) && !this.ac.arrowTrigger)
+    && (!this.ac._checkForTab(data) && !this.ac.tabTrigger)) {
+      this.ac._makeString(data);
+    } if (data === '\x0d' && this.ac.arrowTrigger) { // enter after up or down
+      this.ac.comStr = this.ac._getArrowCmd(_commandHistory);
+      this.ac._enterKey();
+      this.ac.arrowTrigger = false;
+    } if (data === '\x7f' && this.ac.arrowTrigger) { // backspace after up/down
+      this.ac.comStr = this.ac._getArrowCmd(_commandHistory);
+      this.ac.line_x = this.ac.comStr.length;
+      this.ac._backSpaceKey();
+      this.ac.arrowTrigger = false;
+    } if (data === '\x1b[C' && this.ac.arrowTrigger) { // right arrow up/down
+      this.ac.comStr = this.ac._getArrowCmd(_commandHistory);
+      this.ac.line_x = this.ac.comStr.length;
+      if (this.ac.comStr.length > this.ac.line_x) {
+        this.ac.line_x++;
       }
-      return true;
-    } else if (data === '\x1b[D') {
-      // left arrow
-      console.log('poopsleft');
-      if (this.line_x > 0) {
-        this.line_x--;
+      this.ac.arrowTrigger = false;
+    } if (data === '\x1b[D' && this.ac.arrowTrigger) { // left arrow up/down
+      this.ac.comStr = this.ac._getArrowCmd(_commandHistory);
+      this.ac.line_x = this.ac.comStr.length;
+      if (this.ac.line_x > 0) {
+        this.ac.line_x--;
       }
-      return true;
-    }
-    return false;
-  }
-
-  _makeString(data) {
-    // this method takes each character from the term input and creates a string out of it and once the command is done it pushes it into an array
-    if (data === '\x7f') { // if there is a back space delete it
-      if(this.line_x == this.comStr.length){ //cursor is at the end of array
-        this.comStr.pop()
-      }else if(this.line_x <= 0){ //cursor is befor the first element in array
-        return
-      }else{
-        this.comStr = this.comStr.slice(0, this.line_x - 1).concat(this.comStr.slice(this.line_x))
+      this.ac.arrowTrigger = false;
+    } if (data === '\x0d' && _didPaste) { // enter after paste
+      this.ac.comStr = _pastCommand.split('');
+      this.ac.line_x = this.ac.comStr.length;
+      this.ac._enterKey();
+      _didPaste = false;
+    } if (data === '\x7f' && _didPaste) { // backspace after paste
+      this.ac.comStr = _pastCommand.split('');
+      this.ac.line_x = this.ac.comStr.length;
+      this.ac._backSpaceKey();
+      _didPaste = false;
+    } if (data === '\x1b[C' && _didPaste) { // right arrow after paste
+      this.ac.comStr = _pastCommand.split('');
+      this.ac.line_x = this.ac.comStr.length;
+      if (this.ac.comStr.length > this.ac.line_x) {
+        this.ac.line_x++;
       }
-      this.line_x--;
-      console.log(this.comStr);
-      console.log(this.line_x);
-    } else if (data === '\x0d') { // if enter is pressed push the string to an array and clear the buffer string
-      this.commandArr.push(this.comStr.join(''));
-      this.comStr = [];
-      this.line_x = 0;
-      console.log(this.commandArr);
-    } else { // otherwise keep adding to the buffer string
-      if(this.line_x == this.comStr.length){
-        this.comStr.push(data);
-      }else if(this.line_x <= 0){
-        this.comStr = [data].concat(this.comStr);
-      }else{
-        this.comStr = this.comStr.slice(0,
-          this.line_x).concat([data]).concat(this.comStr.slice(this.line_x));
+      _didPaste = false;
+    } if (data === '\x1b[D' && _didPaste) { // left arrow after paste
+      this.ac.comStr = _pastCommand.split('');
+      this.ac.line_x = this.ac.comStr.length;
+      if (this.ac.line_x > 0) {
+        this.ac.line_x--;
       }
-
-      this.line_x++;
-      console.log(this.line_x);
+      _didPaste = false;
+    } if (data === '\u001b[3~') { // delete key
+      this.ac._deleteKey();
+    } if (data === '\x0d' && this.ac.tabTrigger) { // enter after tab
+      this.ac._afterTab(_pastCommand);
+      this.ac.line_x = this.ac.comStr.length;
+      this.ac._enterKey();
+      this.ac.tabTrigger = false;
+    } if (data === '\x7f' && this.ac.tabTrigger) { // backspace after tab
+      this.ac.comStr = _pastCommand.split('');
+      this.ac.line_x = this.ac.comStr.length;
+      this.ac._backSpaceKey();
+      this.ac.tabTrigger = false;
+    } if (data === '\x1b[C' && this.ac.tabTrigger) { // right arrow after tab
+      this.ac.comStr = _pastCommand.split('');
+      this.ac.line_x = this.ac.comStr.length;
+      if (this.ac.comStr.length > this.ac.line_x) {
+        this.ac.line_x++;
+      }
+      this.ac.tabTrigger = false;
+    } if (data === '\x1b[D' && this.ac.tabTrigger) { // left arrow after tab
+      this.ac.comStr = _pastCommand.split('');
+      this.ac.line_x = this.ac.comStr.length;
+      if (this.ac.line_x > 0) {
+        this.ac.line_x--;
+      }
+      this.ac.tabTrigger = false;
     }
   }
 
