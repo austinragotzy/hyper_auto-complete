@@ -26,4 +26,23 @@ const fetchCmds = async () => {
   return cmdsArr;
 };
 
-module.exports = { removeDoubles, fetchCmds };
+/**
+ *
+ * @param  {Array} arr
+ * @return {String} string from array
+ */
+const arrayToString = arr => arr.join('');
+
+/**
+ *
+ * @param  {String} str
+ * @return {Array} array from string
+ */
+const stringToArray = str => str.split('');
+
+module.exports = {
+  removeDoubles,
+  fetchCmds,
+  stringToArray,
+  arrayToString
+};

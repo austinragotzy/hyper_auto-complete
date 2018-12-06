@@ -6,6 +6,9 @@
       "no-console":"off",
       "no-plusplus":"off",
       "no-unused-vars":"off",
-      "no-control-regex":"off"
+      "no-control-regex":"off",
+      "class-methods-use-this": "off",
+      "brace-style": "off",
+      "for-direction": "off"
     }
   }

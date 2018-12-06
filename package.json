@@ -4,8 +4,8 @@
   "description": "command line augmentation meant to provide true auto completion for Hyper.Js using Node.Js and python",
   "main": "index.js",
   "scripts": {
-    "start": "node takeT.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node poop.js",
+    "test": "tap tests/*.js"
   },
   "keywords": [
     "hyper.js",
@@ -21,6 +21,7 @@
   "devDependencies": {
     "eslint": "^4.19.1",
     "eslint-config-airbnb-base": "^13.0.0",
-    "eslint-plugin-import": "^2.13.0"
+    "eslint-plugin-import": "^2.13.0",
+    "tap": "^12.1.0"
   }
 }
