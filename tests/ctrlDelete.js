@@ -76,3 +76,30 @@ tap.test('test ctrl delete three times with 3 words', (t) => {
   t.same(watch.comStr, []);
   t.end();
 });
+
+tap.test('test ctrl delete three in middle of word', (t) => {
+  watch.comStr = ['a', 'b', 'c', ' ', 'd', 'e', 'v', ' ', 'w'];
+  watch.line_x = 3;
+
+  watch._ctrlDelete([0, 0, 0]);
+  t.same(watch.comStr, ['a', 'b']);
+  t.end();
+});
+
+tap.test('test ctrl delete four in middle of word', (t) => {
+  watch.comStr = ['a', 'b', 'c', ' ', 'd', 'e', 'v', ' ', 'w', ' ', 'd', ' '];
+  watch.line_x = 3;
+
+  watch._ctrlDelete([0, 0, 0, 0]);
+  t.same(watch.comStr, ['a', 'b', ' ']);
+  t.end();
+});
+
+tap.test('test ctrl delete four in middle of word', (t) => {
+  watch.comStr = ['a', 'b', 'c', ' ', 'd', 'e', 'v', ' ', 'w', ' ', 'd', ' '];
+  watch.line_x = 2;
+
+  watch._ctrlDelete([0, 0, 0, 0]);
+  t.same(watch.comStr, ['a', ' ']);
+  t.end();
+});

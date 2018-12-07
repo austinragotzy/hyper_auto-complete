@@ -58,3 +58,27 @@ tap.test('test ctrl backspace twice in middle of word', (t) => {
   t.same(watch.comStr, ['e', 'v', ' ', 'w']);
   t.end();
 });
+
+tap.test('test ctrl backspace three in middle of word', (t) => {
+  watch.comStr = ['a', 'b', 'c', ' ', 'd', 'e', 'v', ' ', 'w', ' ', 'd', 'e'];
+  watch.line_x = 11;
+
+  watch._ctrlBackspace([0, 0, 0]);
+  t.same(watch.comStr, ['d', 'e']);
+  t.end();
+});
+
+tap.test('test ctrl backspace four at end of word', (t) => {
+  watch.comStr = [
+    'a', 'b', 'c', ' ',
+    'd', 'e', 'v', ' ',
+    'w', ' ',
+    'd', ' ',
+    'k'];
+
+  watch.line_x = 13;
+
+  watch._ctrlBackspace([0, 0, 0, 0]);
+  t.same(watch.comStr, ['a', 'b', 'c', ' ']);
+  t.end();
+});

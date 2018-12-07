@@ -1,4 +1,10 @@
-const { removeDoubles, stringToArray, arrayToString } = require('./utils');
+const {
+  removeDoubles,
+  stringToArray,
+  arrayToString,
+  sliceFwdOnce,
+  sliceBkwOnce
+} = require('./utils');
 
 /**
  *
@@ -197,28 +203,23 @@ class Watcher {
   }
 
   _ctrlDelete(delArr) {
-    const spaceIndex = [];
-    for (let i = this.comStr.length - 1; i >= 0; i--) {
-      const ele = this.comStr[i];
+    const spIdx = [];
+    this.comStr.forEach((ele, i) => {
       if (ele === ' ') {
-        spaceIndex.push(i);
+        spIdx.push(i);
       }
-    }
+    });
 
-    let newArr;
     let s;
     if (this.line_x < this.comStr.length) {
-      if (delArr.length === spaceIndex.length) {
-        s = this.comStr.indexOf(' ', this.line_x);
-        newArr = this.comStr.slice(0, this.line_x - 1);
-      } else if (spaceIndex.length > delArr.length) {
-        s = this.comStr.indexOf(' ', this.line_x);
-        newArr = this.comStr.slice(0, this.line_x - 1)
-          .concat(this.comStr.slice(s));
+      if (spIdx.length >= delArr.length) {
+        delArr.forEach((val, i) => {
+          s = this.comStr.indexOf(' ', this.line_x);
+          this.comStr = sliceFwdOnce(this.comStr, this.line_x, s);
+        });
       } else {
-        newArr = this.comStr.slice(0, this.line_x - 1);
+        this.comStr = this.comStr.slice(0, this.line_x - 1);
       }
-      this.comStr = newArr;
     }
   }
 

@@ -15,7 +15,7 @@ const Watch = require('./watcher');
 const w = new Watch();
 
 w.comStr = arr;
-w.line_x = 2;
+w.line_x = 6;
 
-const delArr = [0, 0, 0];
-w._ctrlDelete(delArr);
+const delArr = [0, 0];
+w._ctrlBackspace(delArr);
