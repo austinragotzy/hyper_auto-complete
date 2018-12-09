@@ -20,7 +20,16 @@ tap.test('test enter key press', (t) => {
 
   watch.makeString(keys.enter);
   t.same(watch.commandArr, ['abc']);
-  t.equal(watch.line_x, 0);
+  t.same(watch.line_x, 0);
+  t.end();
+});
+
+tap.test('test enter key press with space ', (t) => {
+  watch.comStr = [' ', 'a', 'b', 'c', ' '];
+
+  watch.makeString(keys.enter);
+  t.same(watch.commandArr, ['abc']);
+  t.same(watch.line_x, 0);
   t.end();
 });
 
@@ -30,7 +39,7 @@ tap.test('test backspace key press', (t) => {
 
   watch.makeString(keys.backSp);
   t.same(watch.comStr, ['a', 'b']);
-  t.equal(watch.line_x, 2);
+  t.same(watch.line_x, 2);
   t.end();
 });
 
@@ -40,7 +49,7 @@ tap.test('test delete key press', (t) => {
 
   watch.makeString(keys.delete);
   t.same(watch.comStr, ['a', 'c']);
-  t.equal(watch.line_x, 1);
+  t.same(watch.line_x, 1);
   t.end();
 });
 
@@ -50,6 +59,6 @@ tap.test('test normal key press', (t) => {
 
   watch.makeString('d');
   t.same(watch.comStr, ['a', 'b', 'c', 'd']);
-  t.equal(watch.line_x, 4);
+  t.same(watch.line_x, 4);
   t.end();
 });

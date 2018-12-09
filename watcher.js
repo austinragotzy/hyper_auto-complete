@@ -191,7 +191,8 @@ class Watcher {
     if (this.comStr.length !== 0) {
       // check for control seq chars
       this._cleanCmdStr();
-      this.commandArr.push(arrayToString(this.comStr));
+      const cmdTrim = arrayToString(this.comStr);
+      this.commandArr.push(cmdTrim.trim());
       // .bash_history records two cmds in a row as one
       this.commandArr = removeDoubles(this.commandArr);
     }
@@ -202,6 +203,12 @@ class Watcher {
     console.log(this.commandArr);
   }
 
+  /**
+   *
+   * @method Watcher._ctrlDelete
+   * @param  {Array} delArr
+   * @return {void}
+   */
   _ctrlDelete(delArr) {
     const spIdx = [];
     this.comStr.forEach((ele, i) => {
@@ -209,63 +216,113 @@ class Watcher {
         spIdx.push(i);
       }
     });
-
-    let s;
     if (this.line_x < this.comStr.length) {
-      if (spIdx.length >= delArr.length) {
-        delArr.forEach((val, i) => {
-          s = this.comStr.indexOf(' ', this.line_x);
-          this.comStr = sliceFwdOnce(this.comStr, this.line_x, s);
-        });
+      if (delArr.length > spIdx.length) {
+        this.comStr = this.comStr.slice(0, this.line_x);
       } else {
-        this.comStr = this.comStr.slice(0, this.line_x - 1);
+        const endSpaceIdx = this.comStr.length - 1;
+        const endSpace = this.comStr[endSpaceIdx] === ' ';
+        const cmdBegin = this.comStr.slice(0, this.line_x);
+        let cmdEnd = this.comStr.slice(this.line_x);
+        delArr.forEach(() => {
+          cmdEnd = sliceFwdOnce(cmdEnd, endSpace);
+        });
+        this.line_x = cmdBegin.length;
+        this.comStr = cmdBegin.concat(cmdEnd);
+      }
+      // if (spIdx.length >= delArr.length) {
+      //   const cmdBegin = this.comStr.slice(0, this.line_x);
+      //   delArr.forEach(() => {
+      //     s = this.comStr.indexOf(' ', this.line_x);
+      //     this.comStr = sliceFwdOnce(this.comStr, this.line_x, s);
+      //   });
+      //   this.line_x = cmdBegin.length;
+      // } else {
+      //   this.comStr = this.comStr.slice(0, this.line_x);
+      //   this.line_x = this.comStr.length;
+      // }
+    }
+  }
+
+  /**
+   *
+   * @method Watcher._ctrlBackspace
+   * @param  {Array} delArr
+   * @return {void}
+   */
+  _ctrlBackspace(delArr) {
+    const spIdx = [];
+    this.comStr.forEach((ele, i) => {
+      if (ele === ' ') {
+        spIdx.push(i);
+      }
+    });
+
+    if (this.line_x !== 0) {
+      // cursor is at the end of array
+      if (this.line_x === this.comStr.length) {
+        delArr.forEach(() => {
+          this.comStr = sliceBkwOnce(this.comStr);
+        });
+        this.line_x = this.comStr.length;
+      // somewhere in the middle of the array
+      } else if (this.line_x < this.comStr.length) {
+        let cmdBegin = this.comStr.slice(0, this.line_x);
+        const cmdEnd = this.comStr.slice(this.line_x);
+        delArr.forEach(() => {
+          cmdBegin = sliceBkwOnce(cmdBegin);
+        });
+        this.line_x = cmdBegin.length;
+        this.comStr = cmdBegin.concat(cmdEnd);
       }
     }
   }
 
-  _ctrlBackspace(delArr) {
-    const spaceIndex = [];
-    for (let i = this.line_x - 1; i >= 0; i--) {
-      const ele = this.comStr[i];
-      if (ele === ' ') {
-        spaceIndex.push(i);
+  /**
+   *
+   * @method Watcher._ctrlBackArrow
+   * @param  {Array} moveArr
+   * @return {void}
+   */
+  _ctrlBackArrow(moveArr) {
+    if (this.line_x > 0) {
+      let spaceIndex;
+      moveArr.forEach(() => {
+        if (spaceIndex) {
+          spaceIndex = this.comStr.lastIndexOf(' ', spaceIndex - 1);
+        } else {
+          spaceIndex = this.comStr.lastIndexOf(' ', this.line_x - 1);
+        }
+      });
+      if (spaceIndex >= 0) {
+        this.line_x = spaceIndex + 1;
+      } else {
+        this.line_x = 0;
       }
     }
+  }
 
-    let sliceNum;
-    let newArr;
-    let s;
-    if (this.line_x !== 0) {
-      // cursor is at the end of array
-      if (this.line_x === this.comStr.length) {
-        if (delArr.length === spaceIndex.length) {
-          sliceNum = spaceIndex.length - 1;
-          newArr = this.comStr.slice(0, spaceIndex[sliceNum]);
-          newArr.push(' ');
-        } else if (spaceIndex.length > delArr.length) {
-          sliceNum = 0;
-          newArr = this.comStr.slice(0, spaceIndex[sliceNum]);
-          newArr.push(' ');
+  /**
+   *
+   * @method Watcher._ctrlForwardArrow
+   * @param  {Array} moveArr
+   * @return {void}
+   */
+  _ctrlForwardArrow(moveArr) {
+    if (this.line_x < this.comStr.length) {
+      let spaceIndex;
+      moveArr.forEach(() => {
+        if (spaceIndex) {
+          spaceIndex = this.comStr.indexOf(' ', spaceIndex + 1);
         } else {
-          newArr = [];
+          spaceIndex = this.comStr.indexOf(' ', this.line_x);
         }
-        // somewhere in the middle of the array
-      } else if (this.line_x < this.comStr.length) {
-        if (delArr.length === spaceIndex.length) {
-          s = this.comStr.lastIndexOf(' ', this.line_x - 1);
-          newArr = this.comStr.slice(0, s + 1)
-            .concat(this.comStr.slice(this.line_x - 1));
-        } else if (spaceIndex.length > delArr.length) {
-          s = this.comStr.lastIndexOf(' ', this.line_x - 1);
-          newArr = this.comStr.slice(0, s + 1)
-            .concat(this.comStr.slice(this.line_x - 1));
-        } else {
-          s = this.comStr.lastIndexOf(' ', this.line_x - 1);
-          newArr = this.comStr.slice(this.line_x - 1);
-        }
+      });
+      if (spaceIndex >= 0) {
+        this.line_x = spaceIndex;
+      } else {
+        this.line_x = this.comStr.length;
       }
-      this.comStr = newArr;
-      this.line_x = this.comStr.length;
     }
   }
 

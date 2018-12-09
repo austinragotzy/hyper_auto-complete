@@ -46,37 +46,62 @@ const stringToArray = str => str.split('');
 /**
  *
  * @function sliceFwdOnce
- * @param  {String} str
- * @param {Number} x line_x
+ * @param  {Array} cmdArr
+ * @param {Boolean} endSpace line_x
  * @param {Number} index index of next space char
  * @return {Array} array of string
  */
-const sliceFwdOnce = (str, x, index) => {
-  let tempStr;
-  if (index < 0) {
-    tempStr = str.slice(0, x - 1);
-  } else {
-    tempStr = str.slice(0, x - 1).concat(str.slice(index));
+const sliceFwdOnce = (cmdArr, endSpace) => {
+  let space = arrayToString(cmdArr);
+  space = space.split(' ');
+  const sizeOfSpaces = space.length;
+  for (let i = 0; i < sizeOfSpaces; i++) {
+    if (space[i] === '') {
+      space.shift();
+    } else {
+      space.shift();
+      break;
+    }
   }
-  return tempStr;
+  space = space.join(' ');
+  const tempArr = stringToArray(space);
+  if (tempArr.length > 0 || endSpace) {
+    tempArr.unshift(' ');
+  }
+  return tempArr;
+  // let tempArr;
+  // // catches nothing left on end of array
+  // if (index < 0) {
+  //   tempArr = cmdArr.slice(0, x);
+  // } else {
+  //   tempArr = cmdArr.slice(0, x).concat(cmdArr.slice(index));
+  // }
+  // return tempArr;
 };
 
 /**
  *
  * @function sliceFwdOnce
- * @param  {String} str
- * @param {Number} x line_x
- * @param {Number} index index of next space char
+ * @param  {Array} cmdArr
  * @return {Array} array of string
  */
-const sliceBkwOnce = (str, x, index) => {
-  let tempStr;
-  if (index < 0) {
-    tempStr = str.slice(0, x - 1);
-  } else {
-    tempStr = str.slice(0, x - 1).concat(str.slice(index));
+const sliceBkwOnce = (cmdArr) => {
+  let space = arrayToString(cmdArr);
+  space = space.split(' ');
+  for (let i = space.length - 1; i >= 0; i--) {
+    if (space[i] === '') {
+      space.pop();
+    } else {
+      space.pop();
+      break;
+    }
   }
-  return tempStr;
+  space = space.join(' ');
+  const tempArr = stringToArray(space);
+  if (tempArr.length > 0) {
+    tempArr.push(' ');
+  }
+  return tempArr;
 };
 
 module.exports = {

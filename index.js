@@ -8,11 +8,14 @@ let _pastCommand;
 let _commandHistory;
 // paste is a UI_COMMAND_EXEC event
 let _didPaste = false;
-let _didDelNext = false;
-let _didDelPrev = false;
-const _delPrevArr = [];
-let _didMoveNext = false;
-let _didMovePrev = false;
+let _didCtrlDel = false;
+let _ctrlDelArr = [];
+let _didCtrlBckSpc = false;
+let _ctrlBckArr = [];
+let _didMoveFwd = false;
+let _moveFwdArr = [];
+let _didMoveBck = false;
+let _moveBckArr = [];
 
 exports.middleware = store => next => (action) => {
   // add if UI_COMMAND_EXEC and then add data has paste
@@ -48,7 +51,8 @@ exports.middleware = store => next => (action) => {
       store.dispatch({
         type: 'AUTO_COMPLETE',
         effect() {
-          _didDelNext = true;
+          _didCtrlDel = true;
+          _ctrlDelArr.push(0);
         }
       });
       next(action);
@@ -56,8 +60,8 @@ exports.middleware = store => next => (action) => {
       store.dispatch({
         type: 'AUTO_COMPLETE',
         effect() {
-          _didDelPrev = true;
-          _delPrevArr.push(0);
+          _didCtrlBckSpc = true;
+          _ctrlBckArr.push(0);
         }
       });
       next(action);
@@ -65,7 +69,8 @@ exports.middleware = store => next => (action) => {
       store.dispatch({
         type: 'AUTO_COMPLETE',
         effect() {
-          _didMovePrev = true;
+          _didMoveBck = true;
+          _moveBckArr.push(0);
         }
       });
       next(action);
@@ -73,7 +78,8 @@ exports.middleware = store => next => (action) => {
       store.dispatch({
         type: 'AUTO_COMPLETE',
         effect() {
-          _didMoveNext = true;
+          _didMoveFwd = true;
+          _moveFwdArr.push(0);
         }
       });
       next(action);
@@ -128,9 +134,9 @@ exports.decorateTerms = (Term, { React, notify }) => class extends React.Compone
   _onData(uid, data) {
     // Don't forget to propagate it to HOC chain
     if (this.props.onData) this.props.onData(uid, data);
-    console.log(JSON.stringify(data));
+    // console.log(JSON.stringify(data));
     // no special key presses
-    const anyCtrl = _didDelNext || _didDelPrev || _didMoveNext || _didMovePrev || _didPaste;
+    const anyCtrl = _didCtrlDel || _didCtrlBckSpc || _didMoveFwd || _didMoveBck || _didPaste;
 
     if ((!this.watch.checkForArrow(data) && !this.watch.arrowTrigger)
     && (!this.watch.checkForTab(data) && !this.watch.tabTrigger) && !anyCtrl) {
@@ -143,22 +149,42 @@ exports.decorateTerms = (Term, { React, notify }) => class extends React.Compone
       _didPaste = false;
     }
     // CTRL KEYS
-    if (_didDelPrev) {
-      this.watch._ctrlBackspace(_delPrevArr);
+    if (_didCtrlBckSpc) {
+      this.watch._ctrlBackspace(_ctrlBckArr);
+      if (_didCtrlDel) {
+        this.watch._ctrlDelete(_ctrlDelArr);
+        _didCtrlDel = false;
+        _ctrlDelArr = [];
+      }
       this.watch.makeString(data);
-      _didDelPrev = false;
+      _didCtrlBckSpc = false;
+      _ctrlBckArr = [];
     }
-    if (_didDelNext) {
-      _didDelNext = false;
+    if (_didCtrlDel) {
+      this.watch._ctrlDelete(_ctrlDelArr);
+      this.watch.makeString(data);
+      _didCtrlDel = false;
+      _ctrlDelArr = [];
     }
-    if (_didMovePrev) {
-      _didMovePrev = false;
+    if (_didMoveBck) {
+      this.watch._ctrlBackArrow(_moveBckArr);
+      if (_didMoveFwd) {
+        this.watch._ctrlForwardArrow(_moveFwdArr);
+        _didMoveFwd = false;
+        _moveFwdArr = [];
+      }
+      this.watch.makeString(data);
+      _didMoveBck = false;
+      _moveBckArr = [];
     }
-    if (_didMoveNext) {
-      _didMoveNext = false;
+    if (_didMoveFwd) {
+      this.watch._ctrlForwardArrow(_moveFwdArr);
+      this.watch.makeString(data);
+      _didMoveFwd = false;
+      _moveFwdArr = [];
     }
 
-    // DONE
+    // UP/DOWN ARROWS
     else if (data === '\x0d' && this.watch.arrowTrigger) { // enter after up or down
       this.watch._afterUpDwn(_commandHistory);
       this.watch._enterKey();
@@ -185,7 +211,7 @@ exports.decorateTerms = (Term, { React, notify }) => class extends React.Compone
       this.watch.arrowTrigger = false;
     }
 
-    // DONE
+    // TAB
     else if (data === '\x0d' && this.watch.tabTrigger) { // enter after tab
       this.watch._afterTab(_pastCommand);
       this.watch._enterKey();
@@ -211,10 +237,6 @@ exports.decorateTerms = (Term, { React, notify }) => class extends React.Compone
       this.watch.makeString(data);
       this.watch.tabTrigger = false;
     }
-  }
-
-  _ctrlCommands() {
-    console.log('ctrlCommands');
   }
 
   render() {
