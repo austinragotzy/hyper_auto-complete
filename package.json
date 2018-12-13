@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "start": "node poop.js",
-    "test": "tap tests/*.js"
+    "test": "tap tests/*.js",
+    "bench": "node perf.js"
   },
   "keywords": [
     "hyper.js",

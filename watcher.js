@@ -230,17 +230,6 @@ class Watcher {
         this.line_x = cmdBegin.length;
         this.comStr = cmdBegin.concat(cmdEnd);
       }
-      // if (spIdx.length >= delArr.length) {
-      //   const cmdBegin = this.comStr.slice(0, this.line_x);
-      //   delArr.forEach(() => {
-      //     s = this.comStr.indexOf(' ', this.line_x);
-      //     this.comStr = sliceFwdOnce(this.comStr, this.line_x, s);
-      //   });
-      //   this.line_x = cmdBegin.length;
-      // } else {
-      //   this.comStr = this.comStr.slice(0, this.line_x);
-      //   this.line_x = this.comStr.length;
-      // }
     }
   }
 
