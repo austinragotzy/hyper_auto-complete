@@ -1,5 +1,6 @@
 const {
   removeDoubles,
+  removeEmpty,
   stringToArray,
   arrayToString,
   sliceFwdOnce,
@@ -39,15 +40,22 @@ class Watcher {
     return false;
   }
 
-  _cleanCmdStr() {
+  /**
+   *
+   * @method Watcher._cleanCmdStr
+   * @param  {Array} cmdArr
+   * @return {Array}
+   *
+   */
+  _cleanCmdStr(cmdArr) {
     const tempArr = [];
-    this.comStr.forEach((val) => {
+    cmdArr.forEach((val) => {
       const result = this._checkOkChars(val);
       if (result) {
         tempArr.push(val);
       }
     });
-    this.comStr = tempArr;
+    return tempArr;
   }
 
   /**
@@ -115,14 +123,7 @@ class Watcher {
    */
   _afterTab(cmdEnd) {
     let cmdArr = stringToArray(cmdEnd);
-
-    if (cmdArr.includes('\u0007')) {
-      cmdArr.shift();
-    }
-    if (cmdArr.includes('\r')) {
-      const i = cmdArr.indexOf('\r');
-      cmdArr = cmdArr.slice(0, i);
-    }
+    cmdArr = this._cleanCmdStr(cmdArr);
 
     this.comStr = this.comStr.concat(cmdArr);
     this.line_x = this.comStr.length;
@@ -130,12 +131,13 @@ class Watcher {
 
   /**
    *
-   * @method Watcher._afterPaste
+   * @method Watcher.afterPaste
    * @param  {String} cmdEnd
    * @return {Array}
    */
-  _afterPaste(cmdEnd) {
-    const cmdArr = stringToArray(cmdEnd);
+  afterPaste(cmdEnd) {
+    let cmdArr = stringToArray(cmdEnd);
+    cmdArr = this._cleanCmdStr(cmdArr);
     this.comStr = this.comStr.concat(cmdArr);
     this.line_x = this.comStr.length;
   }
@@ -167,7 +169,7 @@ class Watcher {
       this.comStr = this.comStr.slice(0, this.line_x)
         .concat(this.comStr.slice(this.line_x + 1));
 
-      this._cleanCmdStr();
+      this.comStr = this._cleanCmdStr(this.comStr);
     }
   }
 
@@ -190,9 +192,11 @@ class Watcher {
     // array and clear the buffer string
     if (this.comStr.length !== 0) {
       // check for control seq chars
-      this._cleanCmdStr();
+      this.comStr = this._cleanCmdStr(this.comStr);
       const cmdTrim = arrayToString(this.comStr);
       this.commandArr.push(cmdTrim.trim());
+      // no empty commands
+      this.commandArr = removeEmpty(this.commandArr);
       // .bash_history records two cmds in a row as one
       this.commandArr = removeDoubles(this.commandArr);
     }
@@ -200,67 +204,46 @@ class Watcher {
     this.comStr = [];
     this.line_x = 0;
     this.arrowCnt = 0;
-    console.log(this.commandArr);
   }
 
   /**
    *
-   * @method Watcher._ctrlDelete
-   * @param  {Array} delArr
+   * @method Watcher.ctrlDelete
    * @return {void}
    */
-  _ctrlDelete(delArr) {
-    const spIdx = [];
-    this.comStr.forEach((ele, i) => {
-      if (ele === ' ') {
-        spIdx.push(i);
-      }
-    });
+  ctrlDelete() {
     if (this.line_x < this.comStr.length) {
-      if (delArr.length > spIdx.length) {
-        this.comStr = this.comStr.slice(0, this.line_x);
-      } else {
-        const endSpaceIdx = this.comStr.length - 1;
-        const endSpace = this.comStr[endSpaceIdx] === ' ';
-        const cmdBegin = this.comStr.slice(0, this.line_x);
-        let cmdEnd = this.comStr.slice(this.line_x);
-        delArr.forEach(() => {
-          cmdEnd = sliceFwdOnce(cmdEnd, endSpace);
-        });
-        this.line_x = cmdBegin.length;
-        this.comStr = cmdBegin.concat(cmdEnd);
-      }
+      const endSpaceIdx = this.comStr.length - 1;
+      const hasEndSpace = this.comStr[endSpaceIdx] === ' ';
+
+      const cmdBegin = this.comStr.slice(0, this.line_x);
+      let cmdEnd = this.comStr.slice(this.line_x);
+
+      cmdEnd = sliceFwdOnce(cmdEnd, hasEndSpace);
+
+      this.line_x = cmdBegin.length;
+      this.comStr = cmdBegin.concat(cmdEnd);
     }
   }
 
   /**
    *
-   * @method Watcher._ctrlBackspace
-   * @param  {Array} delArr
+   * @method Watcher.ctrlBackspace
    * @return {void}
    */
-  _ctrlBackspace(delArr) {
-    const spIdx = [];
-    this.comStr.forEach((ele, i) => {
-      if (ele === ' ') {
-        spIdx.push(i);
-      }
-    });
-
+  ctrlBackspace() {
     if (this.line_x !== 0) {
       // cursor is at the end of array
       if (this.line_x === this.comStr.length) {
-        delArr.forEach(() => {
-          this.comStr = sliceBkwOnce(this.comStr);
-        });
+        this.comStr = sliceBkwOnce(this.comStr);
         this.line_x = this.comStr.length;
       // somewhere in the middle of the array
       } else if (this.line_x < this.comStr.length) {
         let cmdBegin = this.comStr.slice(0, this.line_x);
         const cmdEnd = this.comStr.slice(this.line_x);
-        delArr.forEach(() => {
-          cmdBegin = sliceBkwOnce(cmdBegin);
-        });
+
+        cmdBegin = sliceBkwOnce(cmdBegin);
+
         this.line_x = cmdBegin.length;
         this.comStr = cmdBegin.concat(cmdEnd);
       }
@@ -269,20 +252,22 @@ class Watcher {
 
   /**
    *
-   * @method Watcher._ctrlBackArrow
-   * @param  {Array} moveArr
+   * @method Watcher.ctrlBackArrow
    * @return {void}
    */
-  _ctrlBackArrow(moveArr) {
+  ctrlBackArrow() {
     if (this.line_x > 0) {
       let spaceIndex;
-      moveArr.forEach(() => {
-        if (spaceIndex) {
-          spaceIndex = this.comStr.lastIndexOf(' ', spaceIndex - 1);
+      const startIndex = this.line_x - 1;
+      for (let i = startIndex; i >= 0; i--) {
+        const ele = this.comStr[i];
+        if (ele === ' ' && this.line_x > 0) {
+          this.line_x--;
         } else {
           spaceIndex = this.comStr.lastIndexOf(' ', this.line_x - 1);
+          break;
         }
-      });
+      }
       if (spaceIndex >= 0) {
         this.line_x = spaceIndex + 1;
       } else {
@@ -293,20 +278,22 @@ class Watcher {
 
   /**
    *
-   * @method Watcher._ctrlForwardArrow
-   * @param  {Array} moveArr
+   * @method Watcher.ctrlForwardArrow
    * @return {void}
    */
-  _ctrlForwardArrow(moveArr) {
+  ctrlForwardArrow() {
     if (this.line_x < this.comStr.length) {
       let spaceIndex;
-      moveArr.forEach(() => {
-        if (spaceIndex) {
-          spaceIndex = this.comStr.indexOf(' ', spaceIndex + 1);
+      const endIndex = this.comStr.length;
+      for (let i = this.line_x; i < endIndex; i++) {
+        const ele = this.comStr[i];
+        if (ele === ' ' && this.line_x < this.comStr.length) {
+          this.line_x++;
         } else {
           spaceIndex = this.comStr.indexOf(' ', this.line_x);
+          break;
         }
-      });
+      }
       if (spaceIndex >= 0) {
         this.line_x = spaceIndex;
       } else {
@@ -340,6 +327,64 @@ class Watcher {
           this.line_x).concat([data]).concat(this.comStr.slice(this.line_x));
       }
       this.line_x++;
+    }
+  }
+
+  watchArrows(data, cmdHistory) {
+    // UP/DOWN ARROWS
+    if (data === '\x0d') { // enter after up or down
+      this._afterUpDwn(cmdHistory);
+      this._enterKey();
+      this.arrowTrigger = false;
+    } else if (data === '\x7f') { // backspace after up/down
+      this._afterUpDwn(cmdHistory);
+      this._backSpaceKey();
+      this.arrowTrigger = false;
+    } else if (data === '\x1b[C') { // right arrow up/down
+      this._afterUpDwn(cmdHistory);
+      if (this.comStr.length > this.line_x) {
+        this.line_x++;
+      }
+      this.arrowTrigger = false;
+    } else if (data === '\x1b[D') { // left arrow up/down
+      this._afterUpDwn(cmdHistory);
+      if (this.line_x > 0) {
+        this.line_x--;
+      }
+      this.arrowTrigger = false;
+    } else if (this._checkOkChars(data)) {
+      this._afterUpDwn(cmdHistory);
+      this.makeString(data);
+      this.arrowTrigger = false;
+    }
+  }
+
+  watchTab(data, pastCmds) {
+    // TAB
+    if (data === '\x0d') { // enter after tab
+      this._afterTab(pastCmds);
+      this._enterKey();
+      this.tabTrigger = false;
+    } else if (data === '\x7f') { // backspace after tab
+      this._afterTab(pastCmds);
+      this._backSpaceKey();
+      this.tabTrigger = false;
+    } else if (data === '\x1b[C') { // right arrow after tab
+      this._afterTab(pastCmds);
+      if (this.comStr.length > this.line_x) {
+        this.line_x++;
+      }
+      this.tabTrigger = false;
+    } else if (data === '\x1b[D') { // left arrow after tab
+      this._afterTab(pastCmds);
+      if (this.line_x > 0) {
+        this.line_x--;
+      }
+      this.tabTrigger = false;
+    } else if (this._checkOkChars(data)) {
+      this._afterTab(pastCmds);
+      this.makeString(data);
+      this.tabTrigger = false;
     }
   }
 }

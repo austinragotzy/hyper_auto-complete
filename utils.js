@@ -13,6 +13,16 @@ const removeDoubles = (arr) => {
 
 /**
  *
+ * @param  {Array} arr
+ * @return {Array} array of vales, last item and current item unique
+ */
+const removeEmpty = (arr) => {
+  const nonEmptyArr = arr.filter(val => val !== '');
+  return nonEmptyArr;
+};
+
+/**
+ *
  * @function fetchCmds
  * @return {Array} array of strings of each command entered
  */
@@ -47,8 +57,7 @@ const stringToArray = str => str.split('');
  *
  * @function sliceFwdOnce
  * @param  {Array} cmdArr
- * @param {Boolean} endSpace line_x
- * @param {Number} index index of next space char
+ * @param {Boolean} endSpace if space at end of array
  * @return {Array} array of string
  */
 const sliceFwdOnce = (cmdArr, endSpace) => {
@@ -69,14 +78,6 @@ const sliceFwdOnce = (cmdArr, endSpace) => {
     tempArr.unshift(' ');
   }
   return tempArr;
-  // let tempArr;
-  // // catches nothing left on end of array
-  // if (index < 0) {
-  //   tempArr = cmdArr.slice(0, x);
-  // } else {
-  //   tempArr = cmdArr.slice(0, x).concat(cmdArr.slice(index));
-  // }
-  // return tempArr;
 };
 
 /**
@@ -106,6 +107,7 @@ const sliceBkwOnce = (cmdArr) => {
 
 module.exports = {
   removeDoubles,
+  removeEmpty,
   fetchCmds,
   stringToArray,
   arrayToString,

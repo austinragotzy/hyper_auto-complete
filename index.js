@@ -1,6 +1,7 @@
-const fs = require('fs-extra');
 const Watcher = require('./watcher');
 const { fetchCmds } = require('./utils');
+
+const watch = new Watcher();
 
 // grab cmd from arrows, tab and paste then use on next input
 let _pastCommand;
@@ -8,14 +9,8 @@ let _pastCommand;
 let _commandHistory;
 // paste is a UI_COMMAND_EXEC event
 let _didPaste = false;
-let _didCtrlDel = false;
-let _ctrlDelArr = [];
-let _didCtrlBckSpc = false;
-let _ctrlBckArr = [];
-let _didMoveFwd = false;
-let _moveFwdArr = [];
-let _didMoveBck = false;
-let _moveBckArr = [];
+// need to know when we enter REPL
+let _inREPL = false;
 
 exports.middleware = store => next => (action) => {
   // add if UI_COMMAND_EXEC and then add data has paste
@@ -38,6 +33,28 @@ exports.middleware = store => next => (action) => {
       }
     });
     next(action);
+  } else if (action.type === 'SESSION_PTY_DATA') {
+    const { data } = action;
+    if (data.includes('>')) {
+      store.dispatch({
+        type: 'AUTO_COMPLETE',
+        data,
+        effect() {
+          _inREPL = true;
+        }
+      });
+      next(action);
+    } else {
+      next(action);
+    }
+  } else if (action.type === 'SESSION_SET_XTERM_TITLE') {
+    store.dispatch({
+      type: 'AUTO_COMPLETE',
+      effect() {
+        _inREPL = false;
+      }
+    });
+    next(action);
   } else if (action.type === 'UI_COMMAND_EXEC') {
     if (action.command === 'editor:paste') {
       store.dispatch({
@@ -51,8 +68,7 @@ exports.middleware = store => next => (action) => {
       store.dispatch({
         type: 'AUTO_COMPLETE',
         effect() {
-          _didCtrlDel = true;
-          _ctrlDelArr.push(0);
+          watch.ctrlDelete();
         }
       });
       next(action);
@@ -60,8 +76,7 @@ exports.middleware = store => next => (action) => {
       store.dispatch({
         type: 'AUTO_COMPLETE',
         effect() {
-          _didCtrlBckSpc = true;
-          _ctrlBckArr.push(0);
+          watch.ctrlBackspace();
         }
       });
       next(action);
@@ -69,8 +84,7 @@ exports.middleware = store => next => (action) => {
       store.dispatch({
         type: 'AUTO_COMPLETE',
         effect() {
-          _didMoveBck = true;
-          _moveBckArr.push(0);
+          watch.ctrlBackArrow();
         }
       });
       next(action);
@@ -78,8 +92,7 @@ exports.middleware = store => next => (action) => {
       store.dispatch({
         type: 'AUTO_COMPLETE',
         effect() {
-          _didMoveFwd = true;
-          _moveFwdArr.push(0);
+          watch.ctrlForwardArrow();
         }
       });
       next(action);
@@ -111,131 +124,34 @@ exports.getTermProps = (uid, parentProps, props) => Object.assign(props, {
   autoComp: parentProps.autoComp
 });
 
-// exports.decorateConfig = (config) => {
-//   console.log(JSON.stringify(config));
-//   return config;
-// };
-
+// Watches text input and creates string for infrence from model
 exports.decorateTerms = (Term, { React, notify }) => class extends React.Component {
   constructor(props, context) {
     super(props, context);
-    this.term = null;
-    this.watch = new Watcher();
-    this._onDecorated = this._onDecorated.bind(this);
     this._onData = this._onData.bind(this);
-  }
-
-  _onDecorated(term) {
-    // Don't forget to propagate it to HOC chain
-    if (this.props.onDecorated) this.props.onDecorated(term);
-    this.term = term;
   }
 
   _onData(uid, data) {
     // Don't forget to propagate it to HOC chain
     if (this.props.onData) this.props.onData(uid, data);
-    // console.log(JSON.stringify(data));
-    // no special key presses
-    const anyCtrl = _didCtrlDel || _didCtrlBckSpc || _didMoveFwd || _didMoveBck || _didPaste;
+    // TODO might not be the best way of doing this
+    if (!_inREPL) {
+      const specialKeys = watch.checkForArrow(data) || watch.arrowTrigger
+        || watch.checkForTab(data) || watch.tabTrigger || _didPaste;
 
-    if ((!this.watch.checkForArrow(data) && !this.watch.arrowTrigger)
-    && (!this.watch.checkForTab(data) && !this.watch.tabTrigger) && !anyCtrl) {
-      // delete, backspace, enter, and 32-126 uCodeChars
-      this.watch.makeString(data);
-    }
-    // PASTE
-    if (_didPaste) {
-      this.watch._afterPaste(data);
-      _didPaste = false;
-    }
-    // CTRL KEYS
-    if (_didCtrlBckSpc) {
-      this.watch._ctrlBackspace(_ctrlBckArr);
-      if (_didCtrlDel) {
-        this.watch._ctrlDelete(_ctrlDelArr);
-        _didCtrlDel = false;
-        _ctrlDelArr = [];
+      if (!specialKeys) {
+      // delete, backspace, enter, and 32-126 uni code chars
+        watch.makeString(data);
+        // TO CHECK ACCURACY REMOVE SOON
+        console.log(watch.commandArr);
+      } else if (_didPaste) { // PASTE
+        watch.afterPaste(data);
+        _didPaste = false;
+      } else if (watch.arrowTrigger) { // UP/DOWN ARROWS
+        watch.watchArrows(data, _commandHistory);
+      } else if (watch.tabTrigger) { // TAB
+        watch.watchTab(data, _pastCommand);
       }
-      this.watch.makeString(data);
-      _didCtrlBckSpc = false;
-      _ctrlBckArr = [];
-    }
-    if (_didCtrlDel) {
-      this.watch._ctrlDelete(_ctrlDelArr);
-      this.watch.makeString(data);
-      _didCtrlDel = false;
-      _ctrlDelArr = [];
-    }
-    if (_didMoveBck) {
-      this.watch._ctrlBackArrow(_moveBckArr);
-      if (_didMoveFwd) {
-        this.watch._ctrlForwardArrow(_moveFwdArr);
-        _didMoveFwd = false;
-        _moveFwdArr = [];
-      }
-      this.watch.makeString(data);
-      _didMoveBck = false;
-      _moveBckArr = [];
-    }
-    if (_didMoveFwd) {
-      this.watch._ctrlForwardArrow(_moveFwdArr);
-      this.watch.makeString(data);
-      _didMoveFwd = false;
-      _moveFwdArr = [];
-    }
-
-    // UP/DOWN ARROWS
-    else if (data === '\x0d' && this.watch.arrowTrigger) { // enter after up or down
-      this.watch._afterUpDwn(_commandHistory);
-      this.watch._enterKey();
-      this.watch.arrowTrigger = false;
-    } else if (data === '\x7f' && this.watch.arrowTrigger) { // backspace after up/down
-      this.watch._afterUpDwn(_commandHistory);
-      this.watch._backSpaceKey();
-      this.watch.arrowTrigger = false;
-    } else if (data === '\x1b[C' && this.watch.arrowTrigger) { // right arrow up/down
-      this.watch._afterUpDwn(_commandHistory);
-      if (this.watch.comStr.length > this.watch.line_x) {
-        this.watch.line_x++;
-      }
-      this.watch.arrowTrigger = false;
-    } else if (data === '\x1b[D' && this.watch.arrowTrigger) { // left arrow up/down
-      this.watch._afterUpDwn(_commandHistory);
-      if (this.watch.line_x > 0) {
-        this.watch.line_x--;
-      }
-      this.watch.arrowTrigger = false;
-    } else if (this.watch._checkOkChars(data) && this.watch.arrowTrigger) {
-      this.watch._afterUpDwn(_commandHistory);
-      this.watch.makeString(data);
-      this.watch.arrowTrigger = false;
-    }
-
-    // TAB
-    else if (data === '\x0d' && this.watch.tabTrigger) { // enter after tab
-      this.watch._afterTab(_pastCommand);
-      this.watch._enterKey();
-      this.watch.tabTrigger = false;
-    } else if (data === '\x7f' && this.watch.tabTrigger) { // backspace after tab
-      this.watch._afterTab(_pastCommand);
-      this.watch._backSpaceKey();
-      this.watch.tabTrigger = false;
-    } else if (data === '\x1b[C' && this.watch.tabTrigger) { // right arrow after tab
-      this.watch._afterTab(_pastCommand);
-      if (this.watch.comStr.length > this.watch.line_x) {
-        this.watch.line_x++;
-      }
-      this.watch.tabTrigger = false;
-    } else if (data === '\x1b[D' && this.watch.tabTrigger) { // left arrow after tab
-      this.watch._afterTab(_pastCommand);
-      if (this.watch.line_x > 0) {
-        this.watch.line_x--;
-      }
-      this.watch.tabTrigger = false;
-    } else if (this.watch._checkOkChars(data) && this.watch.tabTrigger) {
-      this.watch._afterTab(_pastCommand);
-      this.watch.makeString(data);
-      this.watch.tabTrigger = false;
     }
   }
 
@@ -243,8 +159,74 @@ exports.decorateTerms = (Term, { React, notify }) => class extends React.Compone
     return React.createElement(
       Term,
       Object.assign({}, this.props, {
-        onDecorated: this._onDecorated,
         onData: this._onData
+      })
+    );
+  }
+};
+
+// takes output from model and shows to user
+exports.decorateTerm = (Term, { React, notify }) => class extends React.Component {
+  constructor(props, context) {
+    super(props, context);
+    this._term = null;
+    this._div = null;
+    this._canvas = null;
+    this._frame = null;
+    this._origin = null;
+    this._onDecorated = this._onDecorated.bind(this);
+    this._onCursorMove = this._onCursorMove.bind(this);
+  }
+
+  _onDecorated(term) {
+    if (this.props.onDecorated) this.props.onDecorated(term);
+    this._term = term;
+    this._div = term ? term.termRef : null;
+    console.log(term);
+  }
+
+  _onCursorMove(frame) {
+    // Don't forget to propagate it to HOC chain
+    if (this.props.onCursorMove) this.props.onCursorMove(frame);
+    console.log(frame);
+    this._frame = frame;
+    this._origin = this._div.getBoundingClientRect();
+    console.log(this._origin);
+    if (this._canvas) {
+      this._removeSpan();
+      this._initSpan();
+      this._canvas.innerText = 'poop';
+    } else {
+      this._initSpan();
+      this._canvas.innerText = _commandHistory[_commandHistory.length - 50];
+    }
+  }
+
+  _initSpan() {
+    this._canvas = document.createElement('span');
+    this._canvas.style.position = 'absolute';
+    this._canvas.style.zIndex = '1';
+    this._canvas.style.top = `${this._frame.y + this._origin.top}px`;
+    this._canvas.style.left = `${this._frame.x + this._origin.left + 7}px`;
+    this._canvas.style.fontFamily = this._term.props.fontFamily;
+    this._canvas.style.fontSize = `${this._term.props.fontSize}px`;
+    this._canvas.style.backgroundColor = this._term.props.backgroundColor;
+    this._canvas.style.color = this._term.props.colors.green;
+    this._canvas.style.pointerEvents = 'none';
+    this._canvas.height = this._frame.height;
+    document.body.appendChild(this._canvas);
+  }
+
+  _removeSpan() {
+    document.body.removeChild(this._canvas);
+  }
+
+  render() {
+    return React.createElement(
+      Term,
+      Object.assign({}, this.props, {
+        onDecorated: this._onDecorated,
+        onCursorMove: this._onCursorMove,
       })
     );
   }

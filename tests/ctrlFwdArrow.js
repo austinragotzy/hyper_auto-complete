@@ -7,26 +7,8 @@ tap.test('test ctrl forward arrow 1', (t) => {
   watch.comStr = ['a', 'b', 'c', ' ', 'd', 'e', 'v', ' ', 'w'];
   watch.line_x = 0;
 
-  watch._ctrlForwardArrow([0]);
+  watch.ctrlForwardArrow();
   t.same(watch.line_x, 3);
-  t.end();
-});
-
-tap.test('test ctrl forward arrow 2', (t) => {
-  watch.comStr = ['a', 'b', 'c', ' ', 'd', 'e', 'v', ' ', 'w'];
-  watch.line_x = 0;
-
-  watch._ctrlForwardArrow([0, 0]);
-  t.same(watch.line_x, 7);
-  t.end();
-});
-
-tap.test('test ctrl forward arrow 3', (t) => {
-  watch.comStr = ['a', 'b', 'c', ' ', 'd', 'e', 'v', ' ', 'w'];
-  watch.line_x = 0;
-
-  watch._ctrlForwardArrow([0, 0, 0]);
-  t.same(watch.line_x, 9);
   t.end();
 });
 
@@ -34,16 +16,16 @@ tap.test('test ctrl forward arrow with 1 word', (t) => {
   watch.comStr = ['a', 'b', 'c'];
   watch.line_x = 0;
 
-  watch._ctrlForwardArrow([0]);
+  watch.ctrlForwardArrow();
   t.same(watch.line_x, 3);
   t.end();
 });
 
 tap.test('test ctrl forward arrow in middle', (t) => {
   watch.comStr = ['a', 'b', 'c', ' ', 'd', 'e', 'v', ' ', 'w'];
-  watch.line_x = 2;
+  watch.line_x = 3;
 
-  watch._ctrlForwardArrow([0, 0]);
+  watch.ctrlForwardArrow();
   t.same(watch.line_x, 7);
   t.end();
 });
