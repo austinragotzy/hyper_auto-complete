@@ -23,22 +23,6 @@ const removeEmpty = (arr) => {
 
 /**
  *
- * @function fetchCmds
- * @return {Array} array of strings of each command entered
- */
-const fetchCmds = async () => {
-  let cmdsArr;
-  try {
-    const commands = await fs.readFile(path.join(process.env.HOME, '.bash_history'), 'UTF-8');
-    cmdsArr = commands.split('\n');
-  } catch (err) {
-    console.log(err);
-  }
-  return cmdsArr;
-};
-
-/**
- *
  * @function arrayToString
  * @param  {Array} arr
  * @return {String} string from array
@@ -105,12 +89,46 @@ const sliceBkwOnce = (cmdArr) => {
   return tempArr;
 };
 
+/**
+ *
+ * @function fetchCmds
+ * @return {Array} array of strings of each command entered
+ */
+const fetchCmds = async () => {
+  let cmdsArr;
+  try {
+    const commands = await fs.readFile(path.join(process.env.HOME, '.bash_history'), 'UTF-8');
+    cmdsArr = commands.split('\n');
+  } catch (err) {
+    console.log(err);
+  }
+  return cmdsArr;
+};
+
+/**
+ *
+ * @param  {Array<String>} cmdsArr
+ * @param  {String} key string used as the keyField
+ * @return {Array<Object>}
+ */
+const loadForTrie = (cmdsArr, key) => {
+  const cmds = cmdsArr.join(' ').split(/\s/g);
+  const cmdsSet = new Set(cmds);
+  const words = [];
+  cmdsSet.forEach((word) => {
+    // const obj = Object.assign({}, { [key]: word });
+    words.push({ [key]: word });
+  });
+  return words;
+};
+
 module.exports = {
   removeDoubles,
   removeEmpty,
-  fetchCmds,
   stringToArray,
   arrayToString,
   sliceFwdOnce,
-  sliceBkwOnce
+  sliceBkwOnce,
+  fetchCmds,
+  loadForTrie
 };

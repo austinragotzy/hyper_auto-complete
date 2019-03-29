@@ -9,6 +9,7 @@
       "no-control-regex":"off",
       "class-methods-use-this": "off",
       "brace-style": "off",
-      "for-direction": "off"
+      "for-direction": "off",
+      "no-undef": "off"
     }
   }

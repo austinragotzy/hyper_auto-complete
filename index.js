@@ -1,7 +1,12 @@
+const TrieSearch = require('trie-search');
+
 const Watcher = require('./watcher');
-const { fetchCmds } = require('./utils');
+const { fetchCmds, loadForTrie } = require('./utils');
+
+const CMD = 'cmd';
 
 const watch = new Watcher();
+const trie = new TrieSearch(CMD);
 
 // grab cmd from arrows, tab and paste then use on next input
 let _pastCommand;
@@ -19,7 +24,11 @@ exports.middleware = store => next => (action) => {
     store.dispatch({
       type: 'AUTO_COMPLETE',
       async effect() {
+        // load up something for trie to use for
+        // bash auto complete
         _commandHistory = await fetchCmds();
+        const words = loadForTrie(_commandHistory, CMD);
+        trie.addAll(words);
       }
     });
     next(action);
@@ -35,6 +44,7 @@ exports.middleware = store => next => (action) => {
     next(action);
   } else if (action.type === 'SESSION_PTY_DATA') {
     const { data } = action;
+    // make this more accurate
     if (data.includes('>')) {
       store.dispatch({
         type: 'AUTO_COMPLETE',
@@ -143,7 +153,7 @@ exports.decorateTerms = (Term, { React, notify }) => class extends React.Compone
       // delete, backspace, enter, and 32-126 uni code chars
         watch.makeString(data);
         // TO CHECK ACCURACY REMOVE SOON
-        console.log(watch.commandArr);
+        // console.log(watch.commandArr);
       } else if (_didPaste) { // PASTE
         watch.afterPaste(data);
         _didPaste = false;
@@ -171,7 +181,7 @@ exports.decorateTerm = (Term, { React, notify }) => class extends React.Componen
     super(props, context);
     this._term = null;
     this._div = null;
-    this._canvas = null;
+    this._dropDown = null;
     this._frame = null;
     this._origin = null;
     this._onDecorated = this._onDecorated.bind(this);
@@ -182,43 +192,129 @@ exports.decorateTerm = (Term, { React, notify }) => class extends React.Componen
     if (this.props.onDecorated) this.props.onDecorated(term);
     this._term = term;
     this._div = term ? term.termRef : null;
-    console.log(term);
+    // console.log(term);
   }
 
   _onCursorMove(frame) {
-    // Don't forget to propagate it to HOC chain
     if (this.props.onCursorMove) this.props.onCursorMove(frame);
-    console.log(frame);
+    console.log(this._term);
+    // eslint-disable-next-line
+    const cmdChars = watch.cmdChars;
+    const cmdHintArr = trie.get(cmdChars);
+
     this._frame = frame;
+    // console.log(this._frame);
     this._origin = this._div.getBoundingClientRect();
-    console.log(this._origin);
-    if (this._canvas) {
-      this._removeSpan();
-      this._initSpan();
-      this._canvas.innerText = 'poop';
-    } else {
-      this._initSpan();
-      this._canvas.innerText = _commandHistory[_commandHistory.length - 50];
+    // console.log(this._origin);
+    if (cmdChars.length >= 2 && cmdHintArr.length > 0) {
+      if (this._dropDown) {
+        this._removeDropDown();
+        this._initDropDown(cmdHintArr);
+      } else {
+        this._initDropDown(cmdHintArr);
+      }
+    } else if (this._dropDown) {
+      this._removeDropDown();
     }
   }
 
-  _initSpan() {
-    this._canvas = document.createElement('span');
-    this._canvas.style.position = 'absolute';
-    this._canvas.style.zIndex = '1';
-    this._canvas.style.top = `${this._frame.y + this._origin.top}px`;
-    this._canvas.style.left = `${this._frame.x + this._origin.left + 7}px`;
-    this._canvas.style.fontFamily = this._term.props.fontFamily;
-    this._canvas.style.fontSize = `${this._term.props.fontSize}px`;
-    this._canvas.style.backgroundColor = this._term.props.backgroundColor;
-    this._canvas.style.color = this._term.props.colors.green;
-    this._canvas.style.pointerEvents = 'none';
-    this._canvas.height = this._frame.height;
-    document.body.appendChild(this._canvas);
+  _span(text) {
+    const span = document.createElement('span');
+
+    span.addEventListener('click', (ev) => {
+      // eslint-disable-next-line
+      const cmdChars = watch.cmdChars;
+      const toSend = `${'\b'.repeat(cmdChars.length)}${ev.target.innerText}`;
+      console.log('[click]');
+      console.dir(ev);
+      window.rpc.emit('data', { uid: this.props.uid, data: toSend });
+    });
+    span.addEventListener('mouseenter', (ev) => {
+      span.style.backgroundColor = this._term.props.colors.lightBlack;
+    });
+    span.addEventListener('mouseleave', (ev) => {
+      span.style.backgroundColor = this._term.props.backgroundColor;
+    });
+    span.addEventListener('focus', (ev) => {
+      span.style.backgroundColor = this._term.props.colrs.lightBlack;
+    });
+    span.style.cursor = 'pointer';
+    span.style.fontFamily = this._term.props.fontFamily;
+    span.style.fontSize = `${this._term.props.fontSize}px`;
+    span.style.backgroundColor = this._term.props.backgroundColor;
+    span.style.color = this._term.props.colors.green;
+    span.style.padding = '5px';
+    span.style.display = 'block';
+    span.id = 'list';
+    span.innerText = text;
+    this._dropDown.appendChild(span);
+    return span;
   }
 
-  _removeSpan() {
-    document.body.removeChild(this._canvas);
+  _setDDCss() {
+    this._dropDown = document.createElement('div');
+    this._dropDown.style.position = 'relative';
+    this._dropDown.style.zIndex = '1';
+    this._dropDown.style.top = `${this._frame.y + this._origin.top + 14}px`;
+    this._dropDown.style.left = `${this._frame.x + this._origin.left}px`;
+    this._dropDown.style.fontFamily = this._term.props.fontFamily;
+    this._dropDown.style.fontSize = `${this._term.props.fontSize}px`;
+    this._dropDown.style.color = this._term.props.colors.green;
+    this._dropDown.style.backgroundColor = this._term.props.backgroundColor;
+    this._dropDown.style.border = `1px solid ${this._term.props.colors.cyan}`;
+    this._dropDown.style.minWidth = '100px';
+    this._dropDown.style.maxWidth = '160px';
+    this._dropDown.style.display = 'inline-block';
+    this._dropDown.style.overflow = 'hidden';
+    // this._dropDown.style.pointerEvents = 'none';
+    this._dropDown.height = this._frame.height;
+  }
+
+  _initDropDown(hintArr) {
+    this._setDDCss();
+    this._dropDown.addEventListener('keypress', (ev) => {
+      console.log(e.keyCode);
+      let index = 0;
+      // up
+      if (e.keyCode === 38) {
+        if (index > 0) {
+          index--;
+          document.getElementsByName('span')[index].focus();
+        } else {
+          document.getElementById('span').focus();
+        }
+      }
+      // down
+      if (e.keyCode === 40) {
+        const spanArr = document.getElementsByName('span');
+        if (index < spanArr.length) {
+          index++;
+          spanArr[index].focus();
+        } else {
+          spanArr[index].focus();
+        }
+      }
+      // enter
+      if (e.keyCode === 13) {
+        const selected = document.getElementById('span:focus');
+        selected.click();
+      }
+    });
+    document.body.appendChild(this._dropDown);
+
+    let span;
+    for (let i = 0; i < hintArr.length; i++) {
+      const obj = hintArr[i];
+      if (!obj) break;
+
+      const word = obj[CMD];
+      span = this._span(word);
+    }
+    this._dropDown.focus();
+  }
+
+  _removeDropDown() {
+    this._dropDown.remove();
   }
 
   render() {

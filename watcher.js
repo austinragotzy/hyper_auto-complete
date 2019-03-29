@@ -10,12 +10,11 @@ const {
 /**
  *
  * @class Watcher
- * @property commandArr
  */
 class Watcher {
   /**
    * Creates an instance of Watcher.
-   * @memberof AutoComp
+   * @memberof Watcher
    */
   constructor() {
     this.commandArr = [];
@@ -24,6 +23,16 @@ class Watcher {
     this.arrowCnt = 0;
     this.arrowTrigger = false;
     this.tabTrigger = false;
+  }
+
+  /**
+   *
+   * @readonly
+   * @type {String}
+   * @memberof Watcher
+   */
+  get cmdChars() {
+    return this.comStr.join('');
   }
 
   /**
